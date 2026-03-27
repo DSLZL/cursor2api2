@@ -47,6 +47,7 @@ test/ctf-*-results.json
 
 # Claude local settings
 .claude/
+.spec-workflow/
 
 # Vue UI build output and dependencies
 public/vue/
