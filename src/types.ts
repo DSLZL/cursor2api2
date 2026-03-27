@@ -152,6 +152,15 @@ export interface AppConfig {
     };
     sanitizeEnabled: boolean;    // 是否启用响应内容清洗（替换 Cursor 身份引用为 Claude），默认 false
     refusalPatterns?: string[];  // 自定义拒绝检测规则（追加到内置列表之后）
+    sessionPool?: {
+        readySize: number;   // ready 池目标大小（默认 10）
+        warmingSize: number; // 并发预热数量（默认 5）
+    };
+    resin?: {
+        enabled: boolean;       // 是否启用 Resin 粘性代理（默认 false）
+        url: string;            // Resin 服务地址含 token，如 http://127.0.0.1:2260/my-token
+        platformName: string;   // Platform 字段（默认 Cursor2API）
+    };
     fingerprint: {
         userAgent: string;
     };

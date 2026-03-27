@@ -12,6 +12,7 @@
 import type { CursorChatRequest, CursorSSEEvent } from './types.js';
 import { getConfig } from './config.js';
 import { getProxyFetchOptions } from './proxy-agent.js';
+import { getResinFetchOptions, buildResinTargetUrl } from './resin-agent.js';
 
 const CURSOR_CHAT_API = 'https://cursor.com/api/chat';
 
@@ -78,6 +79,16 @@ async function sendCursorRequestInner(
 ): Promise<void> {
     const headers = getChromeHeaders();
 
+    // ★ Resin 粘性代理：用 conversationId (req.id) 作为 Account 标识
+    const resinCfg = getConfig().resin;
+    const useResin = resinCfg?.enabled && resinCfg.url;
+    const targetUrl = useResin
+        ? buildResinTargetUrl(CURSOR_CHAT_API, resinCfg!.platformName, resinCfg!.url)
+        : CURSOR_CHAT_API;
+    if (useResin) {
+        (headers as Record<string, string>)['X-Resin-Account'] = req.id;
+    }
+
     // 详细日志记录在 handler 层
 
     const config = getConfig();
@@ -106,12 +117,12 @@ async function sendCursorRequestInner(
     resetIdleTimer();
 
     try {
-        const resp = await fetch(CURSOR_CHAT_API, {
+        const resp = await fetch(targetUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify(req),
             signal: controller.signal,
-            ...getProxyFetchOptions(),
+            ...(useResin ? getResinFetchOptions(resinCfg!) : getProxyFetchOptions()),
         } as any);
 
         if (!resp.ok) {

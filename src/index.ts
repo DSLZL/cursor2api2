@@ -15,6 +15,7 @@ import { serveLogViewer, apiGetLogs, apiGetRequests, apiGetStats, apiGetVueStats
 import { apiGetConfig, apiSaveConfig } from './config-api.js';
 import { loadLogsFromFiles } from './logger.js';
 import { initDb } from './logger-db.js';
+import { initSessionPool } from './session-pool.js';
 
 // 从 package.json 读取版本号，统一来源，避免多处硬编码
 const require = createRequire(import.meta.url);
@@ -158,6 +159,9 @@ app.get('/', (_req, res) => {
 if (config.logging?.db_enabled) {
     initDb(config.logging.db_path || './logs/cursor2api.db');
 }
+
+// ★ 初始化 Session 池（高并发预热）
+initSessionPool(config.sessionPool);
 
 // ★ 从日志文件加载历史（必须在 listen 之前）
 loadLogsFromFiles();

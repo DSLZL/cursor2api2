@@ -22,6 +22,7 @@ import { getConfig } from './config.js';
 import { createRequestLogger, type RequestLogger } from './logger.js';
 import { estimateTokens } from './tokenizer.js';
 import { createIncrementalTextStreamer, hasLeadingThinking, splitLeadingThinkingBlocks, stripThinkingTags } from './streaming-text.js';
+import { acquireSession, releaseSession } from './session-pool.js';
 
 function msgId(): string {
     return 'msg_' + uuidv4().replace(/-/g, '').substring(0, 24);
@@ -357,6 +358,9 @@ export async function handleMessages(req: Request, res: Response): Promise<void>
         thinking: body.thinking?.type,
     });
 
+    // ★ 从 session 池获取槽位，追踪并发活跃数
+    const pooledSession = acquireSession();
+
     try {
         if (isIdentityProbe(body)) {
             log.intercepted('身份探针拦截 → 返回模拟响应');
@@ -403,6 +407,9 @@ export async function handleMessages(req: Request, res: Response): Promise<void>
             type: 'error',
             error: { type: 'api_error', message },
         });
+    } finally {
+        // ★ 归还 session 槽位，保持 activeCount 准确
+        releaseSession(pooledSession);
     }
 }
 

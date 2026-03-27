@@ -106,6 +106,23 @@ function parseYamlConfig(defaults: AppConfig): { config: AppConfig; raw: Record<
         if (Array.isArray(yaml.refusal_patterns)) {
             result.refusalPatterns = yaml.refusal_patterns.map(String).filter(Boolean);
         }
+        // ★ Session 池配置
+        if (yaml.session_pool && typeof yaml.session_pool === 'object') {
+            const sp = yaml.session_pool as Record<string, unknown>;
+            result.sessionPool = {
+                readySize: typeof sp.ready_size === 'number' ? sp.ready_size : 10,
+                warmingSize: typeof sp.warming_size === 'number' ? sp.warming_size : 5,
+            };
+        }
+        // ★ Resin 粘性代理配置
+        if (yaml.resin && typeof yaml.resin === 'object') {
+            const r = yaml.resin as Record<string, unknown>;
+            result.resin = {
+                enabled: r.enabled === true,
+                url: typeof r.url === 'string' ? r.url : '',
+                platformName: typeof r.platform_name === 'string' ? r.platform_name : 'Cursor2API',
+            };
+        }
     } catch (e) {
         console.warn('[Config] 读取 config.yaml 失败:', e);
     }
@@ -182,6 +199,21 @@ function applyEnvOverrides(cfg: AppConfig): void {
     // 响应内容清洗环境变量覆盖
     if (process.env.SANITIZE_RESPONSE !== undefined) {
         cfg.sanitizeEnabled = process.env.SANITIZE_RESPONSE === 'true' || process.env.SANITIZE_RESPONSE === '1';
+    }
+
+    // ★ Session 池环境变量覆盖
+    if (process.env.SESSION_POOL_READY !== undefined || process.env.SESSION_POOL_WARMING !== undefined) {
+        if (!cfg.sessionPool) cfg.sessionPool = { readySize: 10, warmingSize: 5 };
+        if (process.env.SESSION_POOL_READY !== undefined) cfg.sessionPool.readySize = parseInt(process.env.SESSION_POOL_READY);
+        if (process.env.SESSION_POOL_WARMING !== undefined) cfg.sessionPool.warmingSize = parseInt(process.env.SESSION_POOL_WARMING);
+    }
+
+    // ★ Resin 代理环境变量覆盖
+    if (process.env.RESIN_ENABLED !== undefined || process.env.RESIN_URL) {
+        if (!cfg.resin) cfg.resin = { enabled: false, url: '', platformName: 'Cursor2API' };
+        if (process.env.RESIN_ENABLED !== undefined) cfg.resin.enabled = process.env.RESIN_ENABLED === 'true' || process.env.RESIN_ENABLED === '1';
+        if (process.env.RESIN_URL) cfg.resin.url = process.env.RESIN_URL;
+        if (process.env.RESIN_PLATFORM) cfg.resin.platformName = process.env.RESIN_PLATFORM;
     }
 
     // 从 base64 FP 环境变量解析指纹

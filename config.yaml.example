@@ -176,6 +176,39 @@ tools:
 #   - "无法为您提供"
 #   - "this request is outside"
 
+# ==================== Session 池配置（高并发优化，可选） ====================
+# 预先分配好 conversationId，高并发时无需临时计算，直接从池中取用
+# 池使用「可用（ready）+ 预热（warming）」两级缓冲，确保请求量突增时不排队
+#
+# 环境变量: SESSION_POOL_READY=10, SESSION_POOL_WARMING=5
+# session_pool:
+#   # ready 池目标大小：保持多少个随时可用的 session ID
+#   # 高并发场景建议设为预期峰值并发数的 1.5~2 倍
+#   ready_size: 10
+#
+#   # 并发预热数量：ready 池低于目标值时，一次性补充多少个
+#   # 设置得越大，补充越快；但太大会造成 ID 浪费
+#   warming_size: 5
+
+# ==================== Resin 粘性代理配置（可选，默认关闭） ====================
+# Resin 是外部代理池，通过「账号 → 固定出口 IP」的粘性路由，
+# 防止同一 Cursor 账号因 IP 漂移触发风控。
+#
+# 接入方式：反向代理（Resin 推荐方式，更简洁）
+# 请求 URL 格式：<resin_url>/<Platform>/https/cursor.com/api/chat
+# 业务身份（Account）通过 X-Resin-Account 请求头传递，值为 conversationId（确定性哈希）
+#
+# 环境变量: RESIN_ENABLED=true, RESIN_URL=http://..., RESIN_PLATFORM=Cursor2API
+# resin:
+#   # 是否启用 Resin 代理
+#   enabled: false
+#
+#   # Resin 服务地址，含 Token，格式：http://<host>:<port>/<token>
+#   url: "http://127.0.0.1:2260/my-token"
+#
+#   # Platform 字段（Resin 用来区分业务方，任意字符串即可）
+#   platform_name: "Cursor2API"
+
 # 浏览器指纹配置
 fingerprint:
   user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
