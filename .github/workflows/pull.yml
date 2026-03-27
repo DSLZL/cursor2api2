@@ -2,5 +2,5 @@ version: "1"
 rules:
   - base: main
     upstream: 7836246:main
-    mergeMethod: hardreset
+    mergeMethod: merge
     mergeUnstable: true
