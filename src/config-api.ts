@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { Request, Response } from 'express';
 import { getConfig } from './config.js';
+import { getPoolStats } from './session-pool.js';
 
 /**
  * GET /api/config
@@ -159,4 +160,13 @@ export function apiSaveConfig(req: Request, res: Response): void {
         console.error('[Config API] 写入 config.yaml 失败:', e);
         res.status(500).json({ error: String(e) });
     }
+}
+
+/**
+ * GET /api/pool-stats
+ * 返回 session 池实时状态（ready/active/warming + 配置参数）
+ */
+export function apiGetPoolStats(_req: Request, res: Response): void {
+    const stats = getPoolStats();
+    res.json(stats);
 }

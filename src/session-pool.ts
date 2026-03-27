@@ -30,11 +30,14 @@ let activeCount = 0;      // 当前正在使用中的 session 数
 let warmingCount = 0;     // 正在后台生成中的数量（占位计数）
 let initialized = false;
 
-function getPoolSizes(): { readySize: number; warmingSize: number } {
+function getPoolSizes(): { readySize: number; warmingSize: number; ttlSeconds: number; autoScale: boolean; maxSize: number } {
     const cfg = getConfig().sessionPool;
     return {
         readySize: cfg?.readySize ?? 10,
         warmingSize: cfg?.warmingSize ?? 5,
+        ttlSeconds: cfg?.ttlSeconds ?? 300,
+        autoScale: cfg?.autoScale ?? true,
+        maxSize: cfg?.maxSize ?? 50,
     };
 }
 
@@ -45,11 +48,24 @@ function createSession(): PooledSession {
 }
 
 /**
+ * 高并发时动态扩容：activeCount 超过 readySize 80% 时，目标扩大 1.5x，上限 maxSize
+ */
+function getEffectiveReadySize(): number {
+    const { readySize, autoScale, maxSize } = getPoolSizes();
+    if (!autoScale) return readySize;
+    if (activeCount >= readySize * 0.8) {
+        return Math.min(Math.ceil(readySize * 1.5), maxSize);
+    }
+    return readySize;
+}
+
+/**
  * 后台异步补充 ready 池，直到达到目标大小
  */
 function replenish(): void {
-    const { readySize, warmingSize } = getPoolSizes();
-    const deficit = readySize - readyQueue.length;
+    const { warmingSize } = getPoolSizes();
+    const effectiveReadySize = getEffectiveReadySize();
+    const deficit = effectiveReadySize - readyQueue.length;
     const canWarm = warmingSize - warmingCount;
     const toGenerate = Math.min(deficit, canWarm);
 
@@ -80,6 +96,17 @@ export function initSessionPool(cfg?: { readySize?: number; warmingSize?: number
     for (let i = 0; i < readySize; i++) {
         readyQueue.push(createSession());
     }
+    // ★ 每 60 秒定期清理过期 session，防止闲置时堆积
+    setInterval(() => {
+        const { ttlSeconds } = getPoolSizes();
+        const ttlMs = ttlSeconds * 1000;
+        const before = readyQueue.length;
+        readyQueue = readyQueue.filter(s => Date.now() - s.createdAt < ttlMs);
+        const removed = before - readyQueue.length;
+        if (removed > 0) {
+            replenish(); // 补充被清理的 slot
+        }
+    }, 60_000).unref(); // unref：不阻止进程退出
     console.log(`[SessionPool] 初始化完成: ready=${readyQueue.length}, warming=${warmingCount}`);
 }
 
@@ -88,6 +115,13 @@ export function initSessionPool(cfg?: { readySize?: number; warmingSize?: number
  * 如果池空则即时创建（降级，不阻塞请求）
  */
 export function acquireSession(): PooledSession {
+    // ★ 懒清理：取用前过滤已过期 session，单次遍历
+    const { ttlSeconds } = getPoolSizes();
+    const ttlMs = ttlSeconds * 1000;
+    const now = Date.now();
+    const filtered = readyQueue.filter(s => now - s.createdAt < ttlMs);
+    if (filtered.length < readyQueue.length) readyQueue = filtered;
+
     let session: PooledSession;
     if (readyQueue.length > 0) {
         session = readyQueue.shift()!;
@@ -115,10 +149,18 @@ export function releaseSession(_session: PooledSession): void {
 /**
  * 获取当前池状态（用于日志/监控）
  */
-export function getPoolStats(): { ready: number; active: number; warming: number } {
+export function getPoolStats(): { ready: number; active: number; warming: number; config: { readySize: number; warmingSize: number; ttlSeconds: number; autoScale: boolean; maxSize: number } } {
+    const cfg = getPoolSizes();
     return {
         ready: readyQueue.length,
         active: activeCount,
         warming: warmingCount,
+        config: {
+            readySize: cfg.readySize,
+            warmingSize: cfg.warmingSize,
+            ttlSeconds: cfg.ttlSeconds,
+            autoScale: cfg.autoScale,
+            maxSize: cfg.maxSize,
+        },
     };
 }

@@ -112,7 +112,14 @@ function parseYamlConfig(defaults: AppConfig): { config: AppConfig; raw: Record<
             result.sessionPool = {
                 readySize: typeof sp.ready_size === 'number' ? sp.ready_size : 10,
                 warmingSize: typeof sp.warming_size === 'number' ? sp.warming_size : 5,
+                ttlSeconds: typeof sp.ttl_seconds === 'number' ? sp.ttl_seconds : 300,
+                autoScale: sp.auto_scale !== false,
+                maxSize: typeof sp.max_size === 'number' ? sp.max_size : 50,
             };
+        }
+        // ★ 强制新会话模式
+        if (yaml.fresh_session !== undefined) {
+            result.freshSession = yaml.fresh_session === true;
         }
         // ★ Resin 粘性代理配置
         if (yaml.resin && typeof yaml.resin === 'object') {
@@ -202,10 +209,20 @@ function applyEnvOverrides(cfg: AppConfig): void {
     }
 
     // ★ Session 池环境变量覆盖
-    if (process.env.SESSION_POOL_READY !== undefined || process.env.SESSION_POOL_WARMING !== undefined) {
-        if (!cfg.sessionPool) cfg.sessionPool = { readySize: 10, warmingSize: 5 };
-        if (process.env.SESSION_POOL_READY !== undefined) cfg.sessionPool.readySize = parseInt(process.env.SESSION_POOL_READY);
-        if (process.env.SESSION_POOL_WARMING !== undefined) cfg.sessionPool.warmingSize = parseInt(process.env.SESSION_POOL_WARMING);
+    if (process.env.SESSION_POOL_READY !== undefined || process.env.SESSION_POOL_WARMING !== undefined ||
+        process.env.SESSION_POOL_TTL !== undefined || process.env.SESSION_POOL_AUTO_SCALE !== undefined ||
+        process.env.SESSION_POOL_MAX !== undefined) {
+        if (!cfg.sessionPool) cfg.sessionPool = { readySize: 10, warmingSize: 5, ttlSeconds: 300, autoScale: true, maxSize: 50 };
+        if (process.env.SESSION_POOL_READY !== undefined) cfg.sessionPool.readySize = parseInt(process.env.SESSION_POOL_READY, 10);
+        if (process.env.SESSION_POOL_WARMING !== undefined) cfg.sessionPool.warmingSize = parseInt(process.env.SESSION_POOL_WARMING, 10);
+        if (process.env.SESSION_POOL_TTL !== undefined) cfg.sessionPool.ttlSeconds = parseInt(process.env.SESSION_POOL_TTL, 10);
+        if (process.env.SESSION_POOL_AUTO_SCALE !== undefined) cfg.sessionPool.autoScale = process.env.SESSION_POOL_AUTO_SCALE !== 'false' && process.env.SESSION_POOL_AUTO_SCALE !== '0';
+        if (process.env.SESSION_POOL_MAX !== undefined) cfg.sessionPool.maxSize = parseInt(process.env.SESSION_POOL_MAX, 10);
+    }
+
+    // ★ 强制新会话模式
+    if (process.env.FRESH_SESSION !== undefined) {
+        cfg.freshSession = process.env.FRESH_SESSION === 'true' || process.env.FRESH_SESSION === '1';
     }
 
     // ★ Resin 代理环境变量覆盖

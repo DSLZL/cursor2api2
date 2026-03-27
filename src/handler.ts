@@ -390,7 +390,10 @@ export async function handleMessages(req: Request, res: Response): Promise<void>
             }
         }
         const clientRequestedThinking = body.thinking?.type === 'enabled';
-        const cursorReq = await convertToCursorRequest(body);
+        // ★ FRESH_SESSION：每次请求用 pooledSession.id 作为 conversationId，强制开辟全新 Cursor 会话
+        const freshSession = getConfig().freshSession ?? false;
+        const forceConversationId = freshSession ? pooledSession.id : undefined;
+        const cursorReq = await convertToCursorRequest(body, forceConversationId);
         log.endPhase();
         log.recordCursorRequest(cursorReq);
         log.debug('Handler', 'convert', `转换完成: ${cursorReq.messages.length} messages, model=${cursorReq.model}, clientThinking=${clientRequestedThinking}, thinkingType=${body.thinking?.type}, configThinking=${thinkingConfig?.enabled ?? 'unset'}`);

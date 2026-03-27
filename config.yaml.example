@@ -181,6 +181,7 @@ tools:
 # 池使用「可用（ready）+ 预热（warming）」两级缓冲，确保请求量突增时不排队
 #
 # 环境变量: SESSION_POOL_READY=10, SESSION_POOL_WARMING=5
+#           SESSION_POOL_TTL=300, SESSION_POOL_AUTO_SCALE=true, SESSION_POOL_MAX=50
 # session_pool:
 #   # ready 池目标大小：保持多少个随时可用的 session ID
 #   # 高并发场景建议设为预期峰值并发数的 1.5~2 倍
@@ -189,6 +190,26 @@ tools:
 #   # 并发预热数量：ready 池低于目标值时，一次性补充多少个
 #   # 设置得越大，补充越快；但太大会造成 ID 浪费
 #   warming_size: 5
+#
+#   # session 过期时间（秒）：超过此时间未被使用的 session 将被清理并重新补充
+#   # 默认 300 秒（5 分钟），防止 ready 池堆积过期 session
+#   ttl_seconds: 300
+#
+#   # 自动扩容：并发超过 ready_size 80% 时，自动将目标扩大到 1.5x（上限 max_size）
+#   # 缩容是自然的，session 取走即丢弃，池自然回落到 ready_size
+#   auto_scale: true
+#
+#   # 扩容上限：auto_scale 开启时，ready 池最多扩容到多少个
+#   max_size: 50
+
+# ==================== 强制新会话模式（可选，默认关闭） ====================
+# 开启后，每次请求使用随机 UUID 作为 conversationId（而非确定性哈希）
+# 效果：每次对话在 Cursor 后端都是全新独立会话，完全隔离上下文
+# 同时 pooledSession.id 直接作为 conversationId，pool 物尽其用
+# Resin 用户启用后可获得每会话独立出口 IP 粘性路由
+#
+# 环境变量: FRESH_SESSION=true
+# fresh_session: false
 
 # ==================== Resin 粘性代理配置（可选，默认关闭） ====================
 # Resin 是外部代理池，通过「账号 → 固定出口 IP」的粘性路由，

@@ -12,7 +12,7 @@ import { getConfig, initConfigWatcher, stopConfigWatcher } from './config.js';
 import { handleMessages, listModels, countTokens } from './handler.js';
 import { handleOpenAIChatCompletions, handleOpenAIResponses } from './openai-handler.js';
 import { serveLogViewer, apiGetLogs, apiGetRequests, apiGetStats, apiGetVueStats, apiGetPayload, apiLogsStream, serveLogViewerLogin, apiClearLogs, serveVueApp, apiGetRequestsMore } from './log-viewer.js';
-import { apiGetConfig, apiSaveConfig } from './config-api.js';
+import { apiGetConfig, apiSaveConfig, apiGetPoolStats } from './config-api.js';
 import { loadLogsFromFiles } from './logger.js';
 import { initDb } from './logger-db.js';
 import { initSessionPool } from './session-pool.js';
@@ -79,6 +79,7 @@ app.get('/api/logs/stream', logViewerAuth, apiLogsStream);
 app.post('/api/logs/clear', logViewerAuth, apiClearLogs);
 app.get('/api/config', logViewerAuth, apiGetConfig);
 app.post('/api/config', logViewerAuth, apiSaveConfig);
+app.get('/api/pool-stats', logViewerAuth, apiGetPoolStats);
 
 // ★ API 鉴权中间件：配置了 authTokens 则需要 Bearer token
 app.use((req, res, next) => {

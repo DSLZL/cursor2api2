@@ -155,7 +155,11 @@ export interface AppConfig {
     sessionPool?: {
         readySize: number;   // ready 池目标大小（默认 10）
         warmingSize: number; // 并发预热数量（默认 5）
+        ttlSeconds: number;  // session 过期时间（秒，默认 300）
+        autoScale: boolean;  // 高并发时自动扩容（默认 true）
+        maxSize: number;     // 扩容上限（默认 50）
     };
+    freshSession?: boolean;  // 每次请求强制创建全新 conversationId（默认 false）
     resin?: {
         enabled: boolean;       // 是否启用 Resin 粘性代理（默认 false）
         url: string;            // Resin 服务地址含 token，如 http://127.0.0.1:2260/my-token

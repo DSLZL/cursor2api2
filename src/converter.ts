@@ -207,7 +207,7 @@ function generateFallbackParams(tool: AnthropicTool): Record<string, unknown> {
  * 策略：Cursor IDE 场景融合 + in-context learning
  * 不覆盖模型身份，而是顺应它在 IDE 内的角色，让它认为自己在执行 IDE 内部的自动化任务
  */
-export async function convertToCursorRequest(req: AnthropicRequest): Promise<CursorChatRequest> {
+export async function convertToCursorRequest(req: AnthropicRequest, forceConversationId?: string): Promise<CursorChatRequest> {
     const config = getConfig();
 
     // ★ 图片预处理：在协议转换之前，检测并处理 Anthropic 格式的 ImageBlockParam
@@ -807,7 +807,7 @@ I will ALWAYS use this exact \`\`\`json action\`\`\` block format for tool calls
 
     return {
         model: config.cursorModel,
-        id: deriveConversationId(req),
+        id: forceConversationId ?? deriveConversationId(req),
         messages,
         trigger: 'submit-message',
     };
