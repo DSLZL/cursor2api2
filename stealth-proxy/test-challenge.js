@@ -1,23 +1,29 @@
 /**
  * 测试 Vercel Challenge 耗时
  * 用法: npm run test:stealth
+ * 优先使用系统 Chrome，找不到则 fallback 到 Playwright Chromium
  */
+const fs = require('fs');
 const CHALLENGE_URL = process.env.CHALLENGE_URL || 'https://cursor.com/cn/docs';
 
-async function simulateHuman(page) {
-    await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
-    const points = Array.from({ length: 5 }, () => ({
-        x: 100 + Math.random() * 600,
-        y: 100 + Math.random() * 400,
-    }));
-    for (const p of points) {
-        await page.mouse.move(p.x, p.y, { steps: 5 + Math.floor(Math.random() * 10) });
-        await new Promise(r => setTimeout(r, 100 + Math.random() * 300));
+// 自动检测系统 Chrome 路径
+function findSystemChrome() {
+    const paths = [
+        // macOS
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        // Linux
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
+        // Windows
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    ];
+    for (const p of paths) {
+        if (fs.existsSync(p)) return p;
     }
-    await page.mouse.wheel(0, 100 + Math.random() * 200);
-    await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
-    await page.mouse.click(300 + Math.random() * 400, 300 + Math.random() * 200);
-    console.log(`[Test] Human behavior simulation done`);
+    return null;
 }
 
 (async () => {
@@ -28,11 +34,21 @@ async function simulateHuman(page) {
     const start = Date.now();
     const elapsed = () => ((Date.now() - start) / 1000).toFixed(1) + 's';
 
-    console.log(`[Test] Launching browser...`);
-    const browser = await chromium.launch({
+    const chromePath = findSystemChrome();
+    if (chromePath) {
+        console.log(`[Test] Using system Chrome: ${chromePath}`);
+    } else {
+        console.log(`[Test] System Chrome not found, using Playwright Chromium`);
+    }
+
+    const launchOptions = {
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
+    };
+    if (chromePath) launchOptions.executablePath = chromePath;
+
+    console.log(`[Test] Launching browser...`);
+    const browser = await chromium.launch(launchOptions);
 
     const ctx = await browser.newContext({
         userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
@@ -43,15 +59,12 @@ async function simulateHuman(page) {
 
     try {
         await page.goto(CHALLENGE_URL, { waitUntil: 'domcontentloaded', timeout: 120000 });
-        console.log(`[Test] [${elapsed()}] Page loaded, simulating human behavior...`);
+        console.log(`[Test] [${elapsed()}] Page loaded, waiting for _vcrcs cookie...`);
     } catch (e) {
         console.error(`[Test] [${elapsed()}] Page load failed: ${e.message}`);
         await browser.close();
         process.exit(1);
     }
-
-    await simulateHuman(page);
-    console.log(`[Test] [${elapsed()}] Waiting for _vcrcs cookie...`);
 
     for (let i = 0; i < 60; i++) {
         const cookies = await ctx.cookies();

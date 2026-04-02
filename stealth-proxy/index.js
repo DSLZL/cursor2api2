@@ -29,6 +29,28 @@ const pendingRequests = new Map();
 
 // ==================== 浏览器管理 ====================
 
+const fs = require('fs');
+
+// 自动检测系统 Chrome 路径（优先使用，指纹更真实）
+function findSystemChrome() {
+    const paths = [
+        // macOS
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        // Linux
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
+        // Windows
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    ];
+    for (const p of paths) {
+        if (fs.existsSync(p)) return p;
+    }
+    return null;
+}
+
 async function loadStealth() {
     const { chromium } = require('playwright-extra');
     const stealth = require('puppeteer-extra-plugin-stealth');
@@ -38,9 +60,9 @@ async function loadStealth() {
 
 async function initBrowser() {
     const chromium = await loadStealth();
+    const chromePath = findSystemChrome();
 
-    console.log('[Stealth] Launching browser...');
-    browser = await chromium.launch({
+    const launchOptions = {
         headless: true,
         args: [
             '--no-sandbox',
@@ -48,7 +70,17 @@ async function initBrowser() {
             '--disable-dev-shm-usage',
             '--disable-gpu',
         ],
-    });
+    };
+
+    if (chromePath) {
+        launchOptions.executablePath = chromePath;
+        console.log(`[Stealth] Using system Chrome: ${chromePath}`);
+    } else {
+        console.log('[Stealth] System Chrome not found, using Playwright Chromium');
+    }
+
+    console.log('[Stealth] Launching browser...');
+    browser = await chromium.launch(launchOptions);
 
     context = await browser.newContext({
         userAgent:
